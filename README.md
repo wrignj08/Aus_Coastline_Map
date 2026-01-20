@@ -2,6 +2,8 @@
 
 An interactive web map displaying historical high tide coastline data for Australia from 2016-2022.
 
+**Live Demo:** https://wrignj08.github.io/Aus_Coastline_Map/
+
 ## Features
 
 - Interactive map powered by Leaflet with Esri World Imagery basemap

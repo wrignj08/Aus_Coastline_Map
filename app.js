@@ -1,3 +1,8 @@
+// Splash screen handler
+document.getElementById('enterMapBtn').addEventListener('click', () => {
+    document.getElementById('splash').classList.add('hidden');
+});
+
 const map = L.map('map', { center: [-31.9505, 115.8605], zoom: 12 });
 
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -8,17 +13,25 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/
 const wfsUrl = 'https://public-services.slip.wa.gov.au/public/services/SLIP_Public_Services/Environment_WFS/MapServer/WFSServer';
 
 const timePeriods = [
-    { layer: 'esri:High_Tide__DPIRD-094__2016-01-01_to_2016-06-30', period: '2016', color: '#ff4444' },
-    { layer: 'esri:High_Tide__DPIRD-094__2017-01-01_to_2017-06-30', period: '2017', color: '#ff8844' },
-    { layer: 'esri:High_Tide__DPIRD-094__2018-01-01_to_2018-06-30', period: '2018', color: '#ffcc44' },
-    { layer: 'esri:High_Tide__DPIRD-094__2019-01-01_to_2019-06-30', period: '2019', color: '#88ff44' },
-    { layer: 'esri:High_Tide__DPIRD-094__2020-01-01_to_2020-06-30', period: '2020', color: '#44ffcc' },
-    { layer: 'esri:High_Tide__DPIRD-094__2021-01-01_to_2021-06-30', period: '2021', color: '#4488ff' },
-    { layer: 'esri:High_Tide__DPIRD-094__2022-01-01_to_2022-06-30', period: '2022', color: '#4444ff' }
+    { layer: 'esri:High_Tide__DPIRD-094__2016-01-01_to_2016-06-30', period: '2016 H1', color: '#ff4444' },
+    { layer: 'esri:High_Tide__DPIRD-094__2016-07-01_to_2016-12-31', period: '2016 H2', color: '#ff6644' },
+    { layer: 'esri:High_Tide__DPIRD-094__2017-01-01_to_2017-06-30', period: '2017 H1', color: '#ff8844' },
+    { layer: 'esri:High_Tide__DPIRD-094__2017-07-01_to_2017-12-31', period: '2017 H2', color: '#ffaa44' },
+    { layer: 'esri:High_Tide__DPIRD-094__2018-01-01_to_2018-06-30', period: '2018 H1', color: '#ffcc44' },
+    { layer: 'esri:High_Tide__DPIRD-094__2018-07-01_to_2018-12-31', period: '2018 H2', color: '#dddd44' },
+    { layer: 'esri:High_Tide__DPIRD-094__2019-01-01_to_2019-06-30', period: '2019 H1', color: '#88ff44' },
+    { layer: 'esri:High_Tide__DPIRD-094__2019-07-01_to_2019-12-31', period: '2019 H2', color: '#44ff88' },
+    { layer: 'esri:High_Tide__DPIRD-094__2020-01-01_to_2020-06-30', period: '2020 H1', color: '#44ffcc' },
+    { layer: 'esri:High_Tide__DPIRD-094__2020-07-01_to_2020-12-31', period: '2020 H2', color: '#44ddff' },
+    { layer: 'esri:High_Tide__DPIRD-094__2021-01-01_to_2021-06-30', period: '2021 H1', color: '#4488ff' },
+    { layer: 'esri:High_Tide__DPIRD-094__2021-07-01_to_2021-12-31', period: '2021 H2', color: '#4466ff' },
+    { layer: 'esri:High_Tide__DPIRD-094__2022-01-01_to_2022-06-30', period: '2022 H1', color: '#4444ff' },
+    { layer: 'esri:High_Tide__DPIRD-094__2022-07-01_to_2022-12-31', period: '2022 H2', color: '#6644ff' }
 ];
 
 const coastlineLayers = {};
 const lineWeight = 4;
+const minZoomForData = 8; // Minimum zoom level to request WFS data
 
 // Swap coordinates from [lat, lon] to [lon, lat] for GeoJSON
 const swapCoords = (coords) => {
@@ -48,45 +61,99 @@ async function loadWFSLayer(layerName, color) {
     }
 }
 
-async function loadAllLayers() {
-    document.getElementById('loading').classList.remove('hidden');
+function setSpinner(layerKey, active) {
+    const spinner = document.getElementById(`spinner-${layerKey}`);
+    if (spinner) {
+        spinner.classList.toggle('active', active);
+    }
+}
 
-    // Remove ALL existing coastline layers from map and clear the object
+function updateZoomMessage() {
+    const zoomMsg = document.getElementById('zoomMessage');
+    if (map.getZoom() < minZoomForData) {
+        zoomMsg.classList.add('visible');
+    } else {
+        zoomMsg.classList.remove('visible');
+    }
+}
+
+async function loadAllLayers() {
+    updateZoomMessage();
+
+    // Don't load data if zoomed out too far
+    if (map.getZoom() < minZoomForData) {
+        // Clear existing layers when zoomed out
+        Object.keys(coastlineLayers).forEach(key => {
+            const layer = coastlineLayers[key];
+            if (layer && map.hasLayer(layer)) map.removeLayer(layer);
+            delete coastlineLayers[key];
+        });
+        return;
+    }
+
+    // Mark loading started - this will pause animation
+    isLoading = true;
+
+    // Load all layers in parallel (keep existing layers visible during load)
+    const currentLoadId = Date.now();
+    loadAllLayers.currentId = currentLoadId;
+
+    // During animation, load ALL layers (but only show active one)
+    // Otherwise, only load enabled layers
+    const layersToLoad = isAnimating
+        ? timePeriods.map(p => p.layer)
+        : timePeriods.filter(p => layerEnabled[p.layer]).map(p => p.layer);
+
+    // Show spinners for layers being loaded
+    timePeriods.forEach(period => {
+        if (layersToLoad.includes(period.layer)) {
+            setSpinner(period.layer, true);
+        }
+    });
+
+    const results = await Promise.all(
+        timePeriods.map(async period => {
+            if (!layersToLoad.includes(period.layer)) return { key: period.layer, layer: null };
+            const layer = await loadWFSLayer(period.layer, period.color);
+            // Hide spinner when this layer finishes loading
+            setSpinner(period.layer, false);
+            return { key: period.layer, layer };
+        })
+    );
+
+    // Only update layers if this is still the current load (not superseded by a newer one)
+    if (loadAllLayers.currentId !== currentLoadId) return;
+
+    // Now remove old layers and add new ones
     Object.keys(coastlineLayers).forEach(key => {
         const layer = coastlineLayers[key];
         if (layer && map.hasLayer(layer)) map.removeLayer(layer);
         delete coastlineLayers[key];
     });
 
-    // Load all layers in parallel
-    const currentLoadId = Date.now();
-    loadAllLayers.currentId = currentLoadId;
-
-    const results = await Promise.all(
-        timePeriods.map(async period => {
-            if (!layerEnabled[period.layer]) return { key: period.layer, layer: null };
-            const layer = await loadWFSLayer(period.layer, period.color);
-            return { key: period.layer, layer };
-        })
-    );
-
-    // Only add layers if this is still the current load (not superseded by a newer one)
-    if (loadAllLayers.currentId !== currentLoadId) return;
-
-    // Store layers and add to map if enabled
+    // Store new layers and add to map based on visibility
     results.forEach(({ key, layer }) => {
         if (layer) {
             coastlineLayers[key] = layer;
-            if (layerEnabled[key]) layer.addTo(map);
+            // During animation, only show the currently active layer
+            // Otherwise, show all enabled layers
+            if (isAnimating) {
+                const activeLayerKey = timePeriods[animationIndex].layer;
+                if (key === activeLayerKey) layer.addTo(map);
+            } else if (layerEnabled[key]) {
+                layer.addTo(map);
+            }
         }
     });
 
-    document.getElementById('loading').classList.add('hidden');
+    // Mark loading complete and resume animation if it was paused
+    isLoading = false;
+    resumeAnimationIfPaused();
 }
 
-// Track which layers are enabled
+// Track which layers are enabled (H1 datasets enabled by default)
 const layerEnabled = {};
-timePeriods.forEach(p => layerEnabled[p.layer] = true);
+timePeriods.forEach(p => layerEnabled[p.layer] = p.period.endsWith('H1'));
 
 // Build toggle controls
 const toggleContainer = document.getElementById('yearToggles');
@@ -94,7 +161,7 @@ timePeriods.forEach(period => {
     const label = document.createElement('label');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.checked = true;
+    checkbox.checked = layerEnabled[period.layer];
     checkbox.id = `toggle-${period.layer}`;
     checkbox.addEventListener('change', e => {
         layerEnabled[period.layer] = e.target.checked;
@@ -112,15 +179,30 @@ timePeriods.forEach(period => {
     colorBox.className = 'color-box';
     colorBox.style.background = period.color;
 
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    spinner.id = `spinner-${period.layer}`;
+
     label.appendChild(checkbox);
     label.appendChild(colorBox);
     label.appendChild(document.createTextNode(period.period));
+    label.appendChild(spinner);
     toggleContainer.appendChild(label);
 });
+
+// Add zoom message
+const zoomMessage = document.createElement('div');
+zoomMessage.className = 'zoom-message';
+zoomMessage.id = 'zoomMessage';
+zoomMessage.textContent = `Zoom in to load data (level ${minZoomForData}+)`;
+toggleContainer.appendChild(zoomMessage);
 
 // Animation controls
 let animationInterval = null;
 let animationIndex = 0;
+let isAnimating = false;
+let animationPaused = false;
+let isLoading = false;
 const animateBtn = document.getElementById('animateBtn');
 const animationYearSpan = document.getElementById('animationYear');
 
@@ -141,16 +223,33 @@ function showOnlyYear(index) {
     });
 }
 
+function animationStep() {
+    // Don't advance if loading - animation is paused
+    if (isLoading) {
+        animationPaused = true;
+        return;
+    }
+    animationPaused = false;
+    animationIndex = (animationIndex + 1) % timePeriods.length;
+    showOnlyYear(animationIndex);
+}
+
 function startAnimation() {
     animateBtn.textContent = 'Stop';
     animateBtn.classList.add('playing');
-    animationIndex = 0;
+    isAnimating = true;
+    animationPaused = false;
+
+    // Check if only one layer is active, start from that layer
+    const activeLayers = timePeriods.filter(p => layerEnabled[p.layer]);
+    if (activeLayers.length === 1) {
+        animationIndex = timePeriods.findIndex(p => p.layer === activeLayers[0].layer);
+    } else {
+        animationIndex = 0;
+    }
     showOnlyYear(animationIndex);
 
-    animationInterval = setInterval(() => {
-        animationIndex = (animationIndex + 1) % timePeriods.length;
-        showOnlyYear(animationIndex);
-    }, 1000);
+    animationInterval = setInterval(animationStep, 1000);
 }
 
 function stopAnimation() {
@@ -159,15 +258,21 @@ function stopAnimation() {
     animateBtn.textContent = 'Play Animation';
     animateBtn.classList.remove('playing');
     animationYearSpan.textContent = '';
+    isAnimating = false;
+    animationPaused = false;
 
-    // Re-enable all layers
-    timePeriods.forEach(period => {
-        const layer = coastlineLayers[period.layer];
-        const checkbox = document.getElementById(`toggle-${period.layer}`);
-        layerEnabled[period.layer] = true;
-        if (checkbox) checkbox.checked = true;
-        if (layer && !map.hasLayer(layer)) layer.addTo(map);
-    });
+    // Keep only the last active layer visible (don't change anything)
+}
+
+function resumeAnimationIfPaused() {
+    if (isAnimating && animationPaused && !isLoading) {
+        animationPaused = false;
+        // Show the current year's layer now that data is loaded
+        showOnlyYear(animationIndex);
+        // Reset the interval so user gets full viewing time for this frame
+        clearInterval(animationInterval);
+        animationInterval = setInterval(animationStep, 1000);
+    }
 }
 
 animateBtn.addEventListener('click', () => {
@@ -178,12 +283,21 @@ animateBtn.addEventListener('click', () => {
     }
 });
 
-// Reload on pan/zoom
+// Reload on pan/zoom (skip initial moveend events)
 let loadTimeout;
+let initialLoadDone = false;
+
 map.on('moveend', () => {
+    if (!initialLoadDone) return;
     clearTimeout(loadTimeout);
     loadTimeout = setTimeout(loadAllLayers, 500);
 });
 
 L.control.scale({ metric: true, imperial: false }).addTo(map);
-loadAllLayers();
+map.attributionControl.setPrefix('v1.1.0 | Leaflet');
+
+// Initial load after a brief delay to ensure map is ready
+setTimeout(() => {
+    loadAllLayers();
+    initialLoadDone = true;
+}, 100);
