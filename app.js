@@ -18,7 +18,7 @@ splash.addEventListener('click', (e) => {
 const map = L.map('map', { center: [-16.6569, 122.7197], zoom: 12, maxZoom: 18 });
 
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: 'Esri World Imagery',
+    attribution: 'Esri, Vantor, Earthstar Geographics, and the GIS User Community',
     maxZoom: 18
 }).addTo(map);
 
