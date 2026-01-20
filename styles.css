@@ -62,10 +62,16 @@ body {
 
 .splash-body {
     padding: 25px 30px;
+    text-align: center;
+}
+
+.splash-body .enter-btn {
+    margin: 20px 0;
 }
 
 .splash-section {
     margin-bottom: 20px;
+    text-align: left;
 }
 
 .splash-section:last-child {
@@ -244,9 +250,9 @@ body {
 }
 
 .controls {
-    top: 20px;
-    right: 20px;
-    width: 140px;  
+    bottom: 20px;
+    right: 3px;
+    width: 140px;
 }
 
 .controls h3 {

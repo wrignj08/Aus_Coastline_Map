@@ -10,7 +10,6 @@ An interactive web map displaying historical high tide coastline data for Austra
 - Historical coastline layers for years 2016-2022, each with a distinct color
 - Toggle individual years on/off via checkboxes
 - Animated playback to cycle through years automatically
-- Data loads dynamically based on the current map view
 
 ## Data Source
 

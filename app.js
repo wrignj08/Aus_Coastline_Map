@@ -1,6 +1,18 @@
 // Splash screen handler
-document.getElementById('enterMapBtn').addEventListener('click', () => {
-    document.getElementById('splash').classList.add('hidden');
+const splash = document.getElementById('splash');
+const splashContent = document.querySelector('.splash-content');
+
+function closeSplash() {
+    splash.classList.add('hidden');
+}
+
+document.getElementById('enterMapBtn').addEventListener('click', closeSplash);
+
+// Close splash when clicking outside the content area
+splash.addEventListener('click', (e) => {
+    if (!splashContent.contains(e.target)) {
+        closeSplash();
+    }
 });
 
 const map = L.map('map', { center: [-16.6569, 122.7197], zoom: 12, maxZoom: 18 });
@@ -295,7 +307,7 @@ map.on('moveend', () => {
 });
 
 L.control.scale({ metric: true, imperial: false }).addTo(map);
-map.attributionControl.setPrefix('v1.1.0 | Leaflet');
+map.attributionControl.setPrefix('v1.2.0 | Leaflet');
 
 // Cursor coordinates display
 const cursorCoords = document.getElementById('cursorCoords');
