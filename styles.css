@@ -347,3 +347,12 @@ body {
 .zoom-message.visible {
     display: block;
 }
+
+.coords {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+    font-size: 11px;
+    color: #444;
+    word-break: break-word;
+}

@@ -3,30 +3,23 @@ document.getElementById('enterMapBtn').addEventListener('click', () => {
     document.getElementById('splash').classList.add('hidden');
 });
 
-const map = L.map('map', { center: [-31.9505, 115.8605], zoom: 12 });
+const map = L.map('map', { center: [-16.6569, 122.7197], zoom: 12, maxZoom: 18 });
 
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     attribution: 'Esri World Imagery',
-    maxZoom: 20
+    maxZoom: 18
 }).addTo(map);
 
 const wfsUrl = 'https://public-services.slip.wa.gov.au/public/services/SLIP_Public_Services/Environment_WFS/MapServer/WFSServer';
 
 const timePeriods = [
-    { layer: 'esri:High_Tide__DPIRD-094__2016-01-01_to_2016-06-30', period: '2016 H1', color: '#ff4444' },
-    { layer: 'esri:High_Tide__DPIRD-094__2016-07-01_to_2016-12-31', period: '2016 H2', color: '#ff6644' },
-    { layer: 'esri:High_Tide__DPIRD-094__2017-01-01_to_2017-06-30', period: '2017 H1', color: '#ff8844' },
-    { layer: 'esri:High_Tide__DPIRD-094__2017-07-01_to_2017-12-31', period: '2017 H2', color: '#ffaa44' },
-    { layer: 'esri:High_Tide__DPIRD-094__2018-01-01_to_2018-06-30', period: '2018 H1', color: '#ffcc44' },
-    { layer: 'esri:High_Tide__DPIRD-094__2018-07-01_to_2018-12-31', period: '2018 H2', color: '#dddd44' },
-    { layer: 'esri:High_Tide__DPIRD-094__2019-01-01_to_2019-06-30', period: '2019 H1', color: '#88ff44' },
-    { layer: 'esri:High_Tide__DPIRD-094__2019-07-01_to_2019-12-31', period: '2019 H2', color: '#44ff88' },
-    { layer: 'esri:High_Tide__DPIRD-094__2020-01-01_to_2020-06-30', period: '2020 H1', color: '#44ffcc' },
-    { layer: 'esri:High_Tide__DPIRD-094__2020-07-01_to_2020-12-31', period: '2020 H2', color: '#44ddff' },
-    { layer: 'esri:High_Tide__DPIRD-094__2021-01-01_to_2021-06-30', period: '2021 H1', color: '#4488ff' },
-    { layer: 'esri:High_Tide__DPIRD-094__2021-07-01_to_2021-12-31', period: '2021 H2', color: '#4466ff' },
-    { layer: 'esri:High_Tide__DPIRD-094__2022-01-01_to_2022-06-30', period: '2022 H1', color: '#4444ff' },
-    { layer: 'esri:High_Tide__DPIRD-094__2022-07-01_to_2022-12-31', period: '2022 H2', color: '#6644ff' }
+    { layer: 'esri:High_Tide__DPIRD-094__2016-01-01_to_2016-06-30', period: '2016', color: '#ff4444' },
+    { layer: 'esri:High_Tide__DPIRD-094__2017-01-01_to_2017-06-30', period: '2017', color: '#ff8844' },
+    { layer: 'esri:High_Tide__DPIRD-094__2018-01-01_to_2018-06-30', period: '2018', color: '#ffcc44' },
+    { layer: 'esri:High_Tide__DPIRD-094__2019-01-01_to_2019-06-30', period: '2019', color: '#88ff44' },
+    { layer: 'esri:High_Tide__DPIRD-094__2020-01-01_to_2020-06-30', period: '2020', color: '#44ffcc' },
+    { layer: 'esri:High_Tide__DPIRD-094__2021-01-01_to_2021-06-30', period: '2021', color: '#4488ff' },
+    { layer: 'esri:High_Tide__DPIRD-094__2022-01-01_to_2022-06-30', period: '2022', color: '#4444ff' }
 ];
 
 const coastlineLayers = {};
@@ -151,9 +144,9 @@ async function loadAllLayers() {
     resumeAnimationIfPaused();
 }
 
-// Track which layers are enabled (H1 datasets enabled by default)
+// Track which layers are enabled (all datasets enabled by default)
 const layerEnabled = {};
-timePeriods.forEach(p => layerEnabled[p.layer] = p.period.endsWith('H1'));
+timePeriods.forEach(p => layerEnabled[p.layer] = true);
 
 // Build toggle controls
 const toggleContainer = document.getElementById('yearToggles');
@@ -283,21 +276,34 @@ animateBtn.addEventListener('click', () => {
     }
 });
 
-// Reload on pan/zoom (skip initial moveend events)
+// Debounced reload on pan/zoom (only fetch after the map settles)
 let loadTimeout;
 let initialLoadDone = false;
+const loadDelayMs = 500;
+
+function scheduleLoad() {
+    clearTimeout(loadTimeout);
+    loadTimeout = setTimeout(() => {
+        loadAllLayers();
+        if (!initialLoadDone) initialLoadDone = true;
+    }, loadDelayMs);
+}
 
 map.on('moveend', () => {
     if (!initialLoadDone) return;
-    clearTimeout(loadTimeout);
-    loadTimeout = setTimeout(loadAllLayers, 500);
+    scheduleLoad();
 });
 
 L.control.scale({ metric: true, imperial: false }).addTo(map);
 map.attributionControl.setPrefix('v1.1.0 | Leaflet');
 
+// Cursor coordinates display
+const cursorCoords = document.getElementById('cursorCoords');
+map.on('mousemove', e => {
+    cursorCoords.textContent = `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
+});
+
 // Initial load after a brief delay to ensure map is ready
 setTimeout(() => {
-    loadAllLayers();
-    initialLoadDone = true;
+    scheduleLoad();
 }, 100);
